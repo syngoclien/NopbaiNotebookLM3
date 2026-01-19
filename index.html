@@ -461,5 +461,27 @@
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    <script>
+function guiDuLieu() {
+  fetch("https://script.google.com/macros/s/AKfycbXXXX/exec", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ho_ten: document.getElementById("hoten").value,
+      nhiem_vu: document.getElementById("nhiemvu").value,
+      link_bai: document.getElementById("linkbai").value
+    })
+  })
+  .then(res => res.json())
+  .then(() => alert("Đã lưu dữ liệu"))
+  .catch(() => alert("Lỗi lưu dữ liệu"));
+}
+</script>
+<button onclick="guiDuLieu()">Gửi</button>
+<input id="hoten" placeholder="Họ tên">
+<input id="nhiemvu" placeholder="Nhiệm vụ">
+<input id="linkbai" placeholder="Link bài nộp">
 </body>
 </html>
