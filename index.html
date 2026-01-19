@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Nộp Bài Online</title>
     
-    <!-- Thư viện giao diện và xử lý -->
+    <!-- Thư viện giao diện -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Babel để chạy React -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Khai báo thư viện -->
+    <!-- Khai báo thư viện React & Firebase -->
     <script type="importmap">
     {
       "imports": {
@@ -28,10 +29,24 @@
         .animate-in { animation: fadeIn 0.4s ease-out forwards; }
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-display { display: none; padding: 20px; background: #fee2e2; color: #991b1b; font-family: monospace; margin: 20px; border-radius: 8px; border: 1px solid #f87171; white-space: pre-wrap; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
+    <!-- Khu vực hiển thị lỗi nếu có -->
+    <div id="error-display"></div>
+    
     <div id="root"></div>
+
+    <!-- SCRIPT BẮT LỖI (DEBUGGER) -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const display = document.getElementById('error-display');
+            display.style.display = 'block';
+            display.innerHTML = `⚠️ ĐÃ XẢY RA LỖI:\n\n${message}\n\nTại dòng: ${lineno}\nFile: ${source}\n\nHướng dẫn sửa:\n1. Kiểm tra lại đoạn code Firebase bạn vừa dán.\n2. Đảm bảo không xóa mất dấu ngoặc } hoặc dấu phẩy ,`;
+            document.getElementById('root').style.display = 'none'; // Ẩn app đi
+        };
+    </script>
 
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo } from 'react';
@@ -49,15 +64,7 @@
         // =================================================================
         const firebaseConfig = {
             // Ví dụ: apiKey: "AIzaSyDOC...",
-            // {
-  apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
-  authDomain: "nopbaitap-htd.firebaseapp.com",
-  projectId: "nopbaitap-htd",
-  storageBucket: "nopbaitap-htd.firebasestorage.app",
-  messagingSenderId: "245972751",
-  appId: "1:245972751:web:03bfb236034a487483c87a",
-  measurementId: "G-V68ZD12JVV"
-};
+            // CHÚ Ý: Đừng xóa dấu ngoặc nhọn bao quanh
              apiKey: "DÁN_API_KEY_VAO_DAY",
              authDomain: "...",
              projectId: "...",
@@ -82,6 +89,7 @@
                 isOnline = true;
             } catch (e) {
                 console.error("Lỗi kết nối Firebase:", e);
+                throw new Error("Thông tin Firebase Config bị sai. Vui lòng kiểm tra lại copy-paste.");
             }
         }
 
