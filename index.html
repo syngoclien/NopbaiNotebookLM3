@@ -1,604 +1,85 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, 
-  onSnapshot, query, orderBy, serverTimestamp 
-} from 'firebase/firestore';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  User, Shield, LogOut, Plus, Trash2, FileSpreadsheet, 
-  ExternalLink, Save, Edit2, CheckCircle, XCircle, Menu, X 
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cổng Nộp Bài</title>
 
-// --- CẤU HÌNH FIREBASE ---
-// BẠN HÃY THAY THẾ BẰNG CONFIG CỦA BẠN TỪ FIREBASE CONSOLE
-const firebaseConfig = 
-{
-  apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
-  authDomain: "nopbaitap-htd.firebaseapp.com",
-  projectId: "nopbaitap-htd",
-  storageBucket: "nopbaitap-htd.firebasestorage.app",
-  messagingSenderId: "245972751",
-  appId: "1:245972751:web:94c86d0f88d412b883c87a",
-  measurementId: "G-879K02ED44"
-};
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-// Khởi tạo Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+  <!-- Babel để chạy JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
 
-// --- HẰNG SỐ & CẤU HÌNH ---
-const ADMIN_PASSWORD = 'admin123'; // Mật khẩu admin đơn giản (Client-side)
-const COLLECTION_PREFIX = 'public/data'; // Dữ liệu chung để Admin và Học viên cùng thấy
+<body class="bg-gray-100">
+  <div id="root"></div>
 
-// --- COMPONENT CHÍNH ---
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [view, setView] = useState('home'); // home, student, admin-login, admin-dashboard
-  
-  // State dữ liệu
-  const [students, setStudents] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  
-  // State UI Admin
-  const [adminPassInput, setAdminPassInput] = useState('');
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [newStudentName, setNewStudentName] = useState('');
-  const [newAssignName, setNewAssignName] = useState('');
-  const [adminTab, setAdminTab] = useState('report'); // report, students, assignments
+  <!-- APP -->
+  <script type="text/babel" data-type="module">
 
-  // State UI Học viên
-  const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [selectedAssignId, setSelectedAssignId] = useState('');
-  const [linkInput, setLinkInput] = useState('');
-  const [editingSubId, setEditingSubId] = useState(null);
+    /* ================= REACT ================= */
+    import React, { useState, useEffect, useMemo } from "https://esm.sh/react@18.2.0";
+    import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
 
-  // --- 1. KHỞI TẠO AUTH & DATA ---
-  useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-         await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-         await signInAnonymously(auth);
+    /* ================= FIREBASE ================= */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+      onSnapshot, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getAuth, signInAnonymously, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    /* ================= ICONS ================= */
+    import {
+      User, Shield, Plus, Trash2, FileSpreadsheet,
+      ExternalLink, Edit2, CheckCircle
+    } from "https://esm.sh/lucide-react@0.344.0";
+
+    /* ================= FIREBASE CONFIG ================= */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
+      authDomain: "nopbaitap-htd.firebaseapp.com",
+      projectId: "nopbaitap-htd",
+      storageBucket: "nopbaitap-htd.appspot.com",
+      messagingSenderId: "245972751",
+      appId: "1:245972751:web:94c86d0f88d412b883c87a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const APP_ID = "nopbaitap-htd"; // ⚠️ KHÔNG dùng __app_id
+
+    /* ================= APP ================= */
+    function App() {
+      const [user, setUser] = useState(null);
+
+      useEffect(() => {
+        signInAnonymously(auth);
+        return onAuthStateChanged(auth, setUser);
+      }, []);
+
+      if (!user) {
+        return <div className="p-10 text-center">Đang kết nối Firebase...</div>;
       }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
 
-  useEffect(() => {
-    if (!user) return;
-
-    // Helper tạo reference tới collection
-    const getRef = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
-
-    // Lắng nghe dữ liệu realtime
-    const unsubStudents = onSnapshot(query(getRef('students'), orderBy('name')), (snap) => {
-      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error(err));
-
-    const unsubAssignments = onSnapshot(query(getRef('assignments'), orderBy('createdAt')), (snap) => {
-      setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error(err));
-
-    const unsubSubmissions = onSnapshot(query(getRef('submissions'), orderBy('timestamp', 'desc')), (snap) => {
-      setSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error(err));
-
-    return () => {
-      unsubStudents();
-      unsubAssignments();
-      unsubSubmissions();
-    };
-  }, [user]);
-
-  // --- 2. CHỨC NĂNG ADMIN ---
-  const handleAdminLogin = (e) => {
-    e.preventDefault();
-    if (adminPassInput === ADMIN_PASSWORD) {
-      setIsAdminAuthenticated(true);
-      setView('admin-dashboard');
-      setAdminPassInput('');
-    } else {
-      alert('Sai mật khẩu!');
-    }
-  };
-
-  const addStudent = async () => {
-    if (!newStudentName.trim()) return;
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), {
-        name: newStudentName.trim(),
-        createdAt: serverTimestamp()
-      });
-      setNewStudentName('');
-    } catch (e) { alert('Lỗi thêm học viên'); }
-  };
-
-  const deleteStudent = async (id) => {
-    if (confirm('Xóa học viên này? Các bài nộp liên quan vẫn còn trong hệ thống nhưng mất liên kết.')) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
-    }
-  };
-
-  const addAssignment = async () => {
-    if (!newAssignName.trim()) return;
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'assignments'), {
-        title: newAssignName.trim(),
-        createdAt: serverTimestamp()
-      });
-      setNewAssignName('');
-    } catch (e) { alert('Lỗi thêm bài tập'); }
-  };
-
-  const deleteAssignment = async (id) => {
-    if (confirm('Xóa bài tập này?')) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assignments', id));
-    }
-  };
-
-  // Logic Xuất Excel (CSV)
-  const exportToCSV = () => {
-    // Header: Họ tên, Bài 1, Bài 2, ...
-    const headers = ['Họ và Tên', ...assignments.map(a => a.title)];
-    
-    const rows = students.map(stu => {
-      const rowData = [stu.name];
-      assignments.forEach(assign => {
-        const sub = submissions.find(s => s.studentId === stu.id && s.assignmentId === assign.id);
-        // Nếu có bài nộp, lấy link, nếu không thì để trống
-        rowData.push(sub ? sub.link : '');
-      });
-      return rowData.join(','); // CSV ngăn cách dấu phẩy
-    });
-
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" // BOM for UTF-8 Excel
-      + headers.join(',') + "\n" 
-      + rows.join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Bao_cao_nop_bai_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // --- 3. CHỨC NĂNG HỌC VIÊN ---
-  const handleSubmitWork = async (e) => {
-    e.preventDefault();
-    if (!selectedStudentId || !selectedAssignId || !linkInput) {
-      alert('Vui lòng chọn đầy đủ thông tin và dán link!');
-      return;
-    }
-
-    const payload = {
-      studentId: selectedStudentId,
-      assignmentId: selectedAssignId,
-      link: linkInput,
-      timestamp: serverTimestamp() // Firestore server time
-    };
-
-    try {
-      // Kiểm tra xem đã nộp chưa để update hoặc tạo mới
-      const existingSub = submissions.find(s => 
-        s.studentId === selectedStudentId && s.assignmentId === selectedAssignId
-      );
-
-      if (editingSubId) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'submissions', editingSubId), {
-           link: linkInput,
-           timestamp: serverTimestamp()
-        });
-        setEditingSubId(null);
-        alert('Cập nhật bài nộp thành công!');
-      } else if (existingSub) {
-        if(confirm('Bạn đã nộp bài này rồi. Bạn có muốn cập nhật link mới không?')) {
-           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'submissions', existingSub.id), {
-             link: linkInput,
-             timestamp: serverTimestamp()
-           });
-           alert('Cập nhật thành công!');
-        }
-      } else {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'submissions'), payload);
-        alert('Nộp bài thành công!');
-      }
-      setLinkInput('');
-      // Không reset student để nộp tiếp bài khác cho nhanh
-      // setSelectedAssignId(''); 
-    } catch (e) {
-      console.error(e);
-      alert('Có lỗi xảy ra khi nộp bài.');
-    }
-  };
-
-  const handleDeleteSubmission = async (subId) => {
-    if(confirm('Bạn chắc chắn muốn xóa bài nộp này?')) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'submissions', subId));
-    }
-  };
-
-  const handleEditRequest = (sub) => {
-    setSelectedAssignId(sub.assignmentId);
-    setLinkInput(sub.link);
-    setEditingSubId(sub.id);
-    // Scroll lên form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // --- RENDER HELPERS ---
-  const mySubmissions = useMemo(() => {
-    if (!selectedStudentId) return [];
-    return submissions.filter(s => s.studentId === selectedStudentId);
-  }, [submissions, selectedStudentId]);
-
-  const getStudentName = (id) => students.find(s => s.id === id)?.name || 'Unknown';
-  const getAssignName = (id) => assignments.find(a => a.id === id)?.title || 'Unknown';
-
-  // --- GIAO DIỆN ---
-  if (!user) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Đang tải kết nối...</div>;
-
-  return (
-    <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
-      
-      {/* HEADER */}
-      <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <CheckCircle className="w-6 h-6" />
-            Cổng Nộp Bài
+      return (
+        <div className="p-10 max-w-xl mx-auto bg-white rounded-xl shadow">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <CheckCircle className="text-green-600" />
+            Cổng Nộp Bài (Online)
           </h1>
-          <div className="flex gap-2">
-            {view !== 'home' && (
-              <button onClick={() => { setView('home'); setIsAdminAuthenticated(false); }} className="text-sm bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded transition">
-                Thoát
-              </button>
-            )}
-          </div>
+          <p className="mt-4 text-gray-600">
+            Firebase đã kết nối thành công.
+          </p>
         </div>
-      </header>
+      );
+    }
 
-      <main className="max-w-5xl mx-auto p-4">
-        
-        {/* VIEW: HOME SELECTION */}
-        {view === 'home' && (
-          <div className="flex flex-col md:flex-row gap-6 mt-10 justify-center items-center">
-            <div 
-              onClick={() => setView('student')}
-              className="w-full md:w-64 h-48 bg-white rounded-xl shadow-lg hover:shadow-xl cursor-pointer flex flex-col items-center justify-center gap-4 transition transform hover:-translate-y-1 border border-gray-200"
-            >
-              <User className="w-16 h-16 text-green-500" />
-              <span className="text-xl font-semibold text-gray-700">Tôi là Học Viên</span>
-            </div>
-            
-            <div 
-              onClick={() => setView('admin-login')}
-              className="w-full md:w-64 h-48 bg-white rounded-xl shadow-lg hover:shadow-xl cursor-pointer flex flex-col items-center justify-center gap-4 transition transform hover:-translate-y-1 border border-gray-200"
-            >
-              <Shield className="w-16 h-16 text-red-500" />
-              <span className="text-xl font-semibold text-gray-700">Tôi là Admin</span>
-            </div>
-          </div>
-        )}
-
-        {/* VIEW: ADMIN LOGIN */}
-        {view === 'admin-login' && (
-          <div className="max-w-md mx-auto mt-20 bg-white p-8 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Đăng nhập Quản trị</h2>
-            <form onSubmit={handleAdminLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Mật khẩu</label>
-                <input 
-                  type="password" 
-                  value={adminPassInput}
-                  onChange={(e) => setAdminPassInput(e.target.value)}
-                  className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Nhập mật khẩu..."
-                />
-              </div>
-              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition">
-                Truy cập
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* VIEW: STUDENT PORTAL */}
-        {view === 'student' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-green-600" />
-                Nộp bài tập
-              </h2>
-              
-              <form onSubmit={handleSubmitWork} className="space-y-4">
-                {/* Chọn tên */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">1. Tên của bạn</label>
-                  <select 
-                    value={selectedStudentId}
-                    onChange={(e) => {
-                      setSelectedStudentId(e.target.value);
-                      setEditingSubId(null); // Reset edit mode khi đổi tên
-                      setLinkInput('');
-                    }}
-                    className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
-                    required
-                  >
-                    <option value="">-- Chọn tên học viên --</option>
-                    {students.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Chọn bài tập */}
-                {selectedStudentId && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">2. Chọn bài tập</label>
-                      <select 
-                        value={selectedAssignId}
-                        onChange={(e) => setSelectedAssignId(e.target.value)}
-                        className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
-                        required
-                      >
-                        <option value="">-- Chọn bài tập --</option>
-                        {assignments.map(a => (
-                          <option key={a.id} value={a.id}>{a.title}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">3. Link bài nộp (Google Drive, Github...)</label>
-                      <input 
-                        type="url"
-                        value={linkInput}
-                        onChange={(e) => setLinkInput(e.target.value)}
-                        placeholder="https://..."
-                        className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none"
-                        required
-                      />
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      className={`w-full py-3 rounded-lg font-bold text-white transition shadow-md ${
-                        editingSubId ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
-                      }`}
-                    >
-                      {editingSubId ? 'Cập nhật bài nộp' : 'Gửi bài nộp'}
-                    </button>
-                    {editingSubId && (
-                      <button 
-                        type="button" 
-                        onClick={() => { setEditingSubId(null); setLinkInput(''); setLinkInput(''); }}
-                        className="w-full mt-2 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        Hủy chỉnh sửa
-                      </button>
-                    )}
-                  </>
-                )}
-              </form>
-            </div>
-
-            {/* Lịch sử nộp bài */}
-            {selectedStudentId && (
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <h3 className="text-lg font-bold mb-4 text-gray-700">Lịch sử nộp bài của: {getStudentName(selectedStudentId)}</h3>
-                {mySubmissions.length === 0 ? (
-                  <p className="text-gray-500 italic">Chưa có bài nộp nào.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b bg-gray-50">
-                          <th className="p-3 text-sm font-semibold text-gray-600">Bài tập</th>
-                          <th className="p-3 text-sm font-semibold text-gray-600">Link</th>
-                          <th className="p-3 text-sm font-semibold text-gray-600">Thời gian</th>
-                          <th className="p-3 text-sm font-semibold text-gray-600 text-right">Hành động</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {mySubmissions.map(sub => (
-                          <tr key={sub.id} className="border-b last:border-0 hover:bg-gray-50">
-                            <td className="p-3 font-medium text-gray-800">{getAssignName(sub.assignmentId)}</td>
-                            <td className="p-3">
-                              <a 
-                                href={sub.link} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="text-blue-600 hover:underline flex items-center gap-1 max-w-[150px] truncate"
-                              >
-                                Xem Link <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </td>
-                            <td className="p-3 text-sm text-gray-500">
-                              {sub.timestamp ? new Date(sub.timestamp.seconds * 1000).toLocaleString('vi-VN') : 'Vừa xong'}
-                            </td>
-                            <td className="p-3 text-right space-x-2">
-                              <button 
-                                onClick={() => handleEditRequest(sub)}
-                                className="text-orange-500 hover:text-orange-700 text-sm font-medium"
-                              >
-                                Sửa
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteSubmission(sub.id)}
-                                className="text-red-500 hover:text-red-700 text-sm font-medium"
-                              >
-                                Xóa
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* VIEW: ADMIN DASHBOARD */}
-        {view === 'admin-dashboard' && isAdminAuthenticated && (
-          <div className="space-y-6">
-            {/* Admin Tabs */}
-            <div className="flex flex-wrap gap-2 border-b pb-2">
-              <button 
-                onClick={() => setAdminTab('report')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${adminTab === 'report' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
-              >
-                Báo cáo Tổng quan
-              </button>
-              <button 
-                onClick={() => setAdminTab('students')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${adminTab === 'students' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
-              >
-                QL Học viên
-              </button>
-              <button 
-                onClick={() => setAdminTab('assignments')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${adminTab === 'assignments' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
-              >
-                QL Bài tập
-              </button>
-            </div>
-
-            {/* TAB: REPORT MATRIX */}
-            {adminTab === 'report' && (
-              <div className="bg-white p-4 rounded-xl shadow-md overflow-hidden">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-800">Tiến độ nộp bài</h3>
-                  <button 
-                    onClick={exportToCSV}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition shadow-sm"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" /> Xuất Excel
-                  </button>
-                </div>
-                
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="w-full text-center border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-gray-100 text-gray-700">
-                        <th className="p-3 border-r border-b min-w-[150px] text-left sticky left-0 bg-gray-100 z-10">HỌ TÊN HỌC VIÊN</th>
-                        {assignments.map(a => (
-                          <th key={a.id} className="p-3 border-b min-w-[100px] font-semibold">{a.title}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {students.map((stu, idx) => (
-                        <tr key={stu.id} className="hover:bg-gray-50">
-                          <td className="p-3 border-r border-b text-left font-medium sticky left-0 bg-white z-10">
-                            {idx + 1}. {stu.name}
-                          </td>
-                          {assignments.map(assign => {
-                            const sub = submissions.find(s => s.studentId === stu.id && s.assignmentId === assign.id);
-                            return (
-                              <td key={assign.id} className="p-3 border-b">
-                                {sub ? (
-                                  <a 
-                                    href={sub.link} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="inline-block text-green-600 font-bold text-lg hover:scale-125 transition transform"
-                                    title={`Đã nộp: ${new Date(sub.timestamp?.seconds * 1000).toLocaleDateString()}`}
-                                  >
-                                    x
-                                  </a>
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      {students.length === 0 && (
-                        <tr><td colSpan={assignments.length + 1} className="p-4 text-gray-400">Chưa có dữ liệu học viên</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: MANAGE STUDENTS */}
-            {adminTab === 'students' && (
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <h3 className="font-bold mb-4">Danh sách Học Viên ({students.length})</h3>
-                <div className="flex gap-2 mb-6">
-                  <input 
-                    type="text" 
-                    value={newStudentName}
-                    onChange={(e) => setNewStudentName(e.target.value)}
-                    placeholder="Nhập tên học viên mới..."
-                    className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <button onClick={addStudent} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
-                    <Plus className="w-4 h-4" /> Thêm
-                  </button>
-                </div>
-                <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {students.map(s => (
-                    <div key={s.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border group hover:border-blue-300">
-                      <span className="font-medium">{s.name}</span>
-                      <button onClick={() => deleteStudent(s.id)} className="text-gray-400 hover:text-red-500 transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TAB: MANAGE ASSIGNMENTS */}
-            {adminTab === 'assignments' && (
-              <div className="bg-white p-6 rounded-xl shadow-md">
-                <h3 className="font-bold mb-4">Danh sách Bài Tập ({assignments.length})</h3>
-                <div className="flex gap-2 mb-6">
-                  <input 
-                    type="text" 
-                    value={newAssignName}
-                    onChange={(e) => setNewAssignName(e.target.value)}
-                    placeholder="VD: Bài tập Lab 1..."
-                    className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <button onClick={addAssignment} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
-                    <Plus className="w-4 h-4" /> Thêm
-                  </button>
-                </div>
-                <ul className="space-y-2">
-                  {assignments.map((a, idx) => (
-                    <li key={a.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border">
-                      <span className="font-medium"><span className="text-blue-600 font-bold mr-2">#{idx + 1}</span> {a.title}</span>
-                      <button onClick={() => deleteAssignment(a.id)} className="text-gray-400 hover:text-red-500 transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
+    createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
