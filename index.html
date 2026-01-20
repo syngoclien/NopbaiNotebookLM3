@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH FIREBASE ---
-// {
+// BẠN HÃY THAY THẾ BẰNG CONFIG CỦA BẠN TỪ FIREBASE CONSOLE
+const firebaseConfig = 
+{
   apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
   authDomain: "nopbaitap-htd.firebaseapp.com",
   projectId: "nopbaitap-htd",
@@ -22,8 +24,6 @@ import {
   appId: "1:245972751:web:94c86d0f88d412b883c87a",
   measurementId: "G-879K02ED44"
 };
-
-const firebaseConfig = JSON.parse(__firebase_config);
 
 // Khởi tạo Firebase
 const app = initializeApp(firebaseConfig);
