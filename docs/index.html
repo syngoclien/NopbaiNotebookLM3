@@ -1,1 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cổng Nộp Bài</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Babel để chạy JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <!-- APP -->
+  <script type="text/babel" data-type="module">
+
+    /* ================= REACT ================= */
+    import React, { useState, useEffect, useMemo } from "https://esm.sh/react@18.2.0";
+    import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
+
+    /* ================= FIREBASE ================= */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+      onSnapshot, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getAuth, signInAnonymously, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    /* ================= ICONS ================= */
+    import {
+      User, Shield, Plus, Trash2, FileSpreadsheet,
+      ExternalLink, Edit2, CheckCircle
+    } from "https://esm.sh/lucide-react@0.344.0";
+
+    /* ================= FIREBASE CONFIG ================= */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
+      authDomain: "nopbaitap-htd.firebaseapp.com",
+      projectId: "nopbaitap-htd",
+      storageBucket: "nopbaitap-htd.appspot.com",
+      messagingSenderId: "245972751",
+      appId: "1:245972751:web:94c86d0f88d412b883c87a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const APP_ID = "nopbaitap-htd"; // ⚠️ KHÔNG dùng __app_id
+
+    /* ================= APP ================= */
+    function App() {
+      const [user, setUser] = useState(null);
+
+      useEffect(() => {
+        signInAnonymously(auth);
+        return onAuthStateChanged(auth, setUser);
+      }, []);
+
+      if (!user) {
+        return <div className="p-10 text-center">Đang kết nối Firebase...</div>;
+      }
+
+      return (
+        <div className="p-10 max-w-xl mx-auto bg-white rounded-xl shadow">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <CheckCircle className="text-green-600" />
+            Cổng Nộp Bài (Online)
+          </h1>
+          <p className="mt-4 text-gray-600">
+            Firebase đã kết nối thành công.
+          </p>
+        </div>
+      );
+    }
+
+    createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
 
