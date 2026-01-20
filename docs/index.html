@@ -33,7 +33,7 @@
     /* ================= ICONS ================= */
     import {
       User, Shield, Plus, Trash2, FileSpreadsheet,
-      ExternalLink, Edit2, CheckCircle
+      ExternalLink, Edit2, CheckCircle, Save, X
     } from "https://esm.sh/lucide-react@0.344.0";
 
     /* ================= FIREBASE CONFIG ================= */
@@ -71,8 +71,16 @@
       const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
       const [newStudentName, setNewStudentName] = useState("");
       const [newAssignName, setNewAssignName] = useState("");
-      const [newAssignDeadline, setNewAssignDeadline] = useState(""); // NEW
+      const [newAssignDeadline, setNewAssignDeadline] = useState(""); // deadline when add
       const [adminTab, setAdminTab] = useState("report"); // report, students, assignments
+
+      // admin edit states (NEW)
+      const [editingStudentId, setEditingStudentId] = useState(null);
+      const [editingStudentName, setEditingStudentName] = useState("");
+
+      const [editingAssignId, setEditingAssignId] = useState(null);
+      const [editingAssignName, setEditingAssignName] = useState("");
+      const [editingAssignDeadline, setEditingAssignDeadline] = useState("");
 
       // student ui
       const [selectedStudentId, setSelectedStudentId] = useState("");
@@ -120,11 +128,9 @@
       const getStudentName = (id) => students.find(s => s.id === id)?.name || "Unknown";
       const getAssignName = (id) => assignments.find(a => a.id === id)?.title || "Unknown";
 
-      // NEW: assignment helpers
       const getAssignment = (id) => assignments.find(a => a.id === id);
-      const getAssignDeadline = (id) => getAssignment(id)?.deadline || ""; // "YYYY-MM-DD" or ""
+      const getAssignDeadline = (id) => getAssignment(id)?.deadline || "";
 
-      // NEW: local ISO date (avoid UTC shift)
       const toISODateLocal = (dateObj = new Date()) => {
         const y = dateObj.getFullYear();
         const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -134,7 +140,6 @@
 
       const formatVNDate = (iso) => {
         if (!iso) return "";
-        // "YYYY-MM-DD" => "DD/MM/YYYY"
         const parts = iso.split("-");
         if (parts.length !== 3) return iso;
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -142,7 +147,6 @@
 
       const isOnTime = (submitDate, deadline) => {
         if (!submitDate || !deadline) return false;
-        // both are YYYY-MM-DD => lexicographic compare is valid
         return submitDate <= deadline;
       };
 
@@ -178,16 +182,38 @@
         } catch (e) { console.error(e); alert("Lỗi xóa học viên"); }
       };
 
+      // ===== STUDENT EDIT (NEW) =====
+      const startEditStudent = (stu) => {
+        setEditingStudentId(stu.id);
+        setEditingStudentName(stu.name || "");
+      };
+
+      const cancelEditStudent = () => {
+        setEditingStudentId(null);
+        setEditingStudentName("");
+      };
+
+      const saveEditStudent = async () => {
+        if (!editingStudentId) return;
+        if (!editingStudentName.trim()) { alert("Tên không được để trống"); return; }
+        try {
+          await updateDoc(doc(db, "students", editingStudentId), {
+            name: editingStudentName.trim()
+          });
+          cancelEditStudent();
+        } catch (e) { console.error(e); alert("Lỗi cập nhật học viên"); }
+      };
+
       const addAssignment = async () => {
         if (!newAssignName.trim()) return;
         try {
           await addDoc(colAssignments(), {
             title: newAssignName.trim(),
-            deadline: newAssignDeadline || "", // NEW
+            deadline: newAssignDeadline || "",
             createdAt: serverTimestamp()
           });
           setNewAssignName("");
-          setNewAssignDeadline(""); // NEW
+          setNewAssignDeadline("");
         } catch (e) { console.error(e); alert("Lỗi thêm bài tập"); }
       };
 
@@ -196,6 +222,31 @@
         try {
           await deleteDoc(doc(db, "assignments", id));
         } catch (e) { console.error(e); alert("Lỗi xóa bài tập"); }
+      };
+
+      // ===== ASSIGNMENT EDIT (NEW) =====
+      const startEditAssignment = (a) => {
+        setEditingAssignId(a.id);
+        setEditingAssignName(a.title || "");
+        setEditingAssignDeadline(a.deadline || "");
+      };
+
+      const cancelEditAssignment = () => {
+        setEditingAssignId(null);
+        setEditingAssignName("");
+        setEditingAssignDeadline("");
+      };
+
+      const saveEditAssignment = async () => {
+        if (!editingAssignId) return;
+        if (!editingAssignName.trim()) { alert("Tên bài tập không được để trống"); return; }
+        try {
+          await updateDoc(doc(db, "assignments", editingAssignId), {
+            title: editingAssignName.trim(),
+            deadline: editingAssignDeadline || ""
+          });
+          cancelEditAssignment();
+        } catch (e) { console.error(e); alert("Lỗi cập nhật bài tập"); }
       };
 
       const exportToCSV = () => {
@@ -236,13 +287,13 @@
           s.studentId === selectedStudentId && s.assignmentId === selectedAssignId
         );
 
-        const todayISO = toISODateLocal(new Date()); // NEW: auto submit date (local)
+        const todayISO = toISODateLocal(new Date());
 
         try {
           if (editingSubId) {
             await updateDoc(doc(db, "submissions", editingSubId), {
               link: linkInput,
-              submitDate: todayISO, // NEW
+              submitDate: todayISO,
               timestamp: serverTimestamp()
             });
             setEditingSubId(null);
@@ -251,7 +302,7 @@
             if (confirm("Bạn đã nộp bài này rồi. Cập nhật link mới?")) {
               await updateDoc(doc(db, "submissions", existingSub.id), {
                 link: linkInput,
-                submitDate: todayISO, // NEW
+                submitDate: todayISO,
                 timestamp: serverTimestamp()
               });
               alert("Cập nhật thành công!");
@@ -261,7 +312,7 @@
               studentId: selectedStudentId,
               assignmentId: selectedAssignId,
               link: linkInput,
-              submitDate: todayISO, // NEW
+              submitDate: todayISO,
               timestamp: serverTimestamp()
             });
             alert("Nộp bài thành công!");
@@ -308,7 +359,14 @@
               <div className="flex gap-2">
                 {view !== "home" && (
                   <button
-                    onClick={() => { setView("home"); setIsAdminAuthenticated(false); }}
+                    onClick={() => {
+                      setView("home");
+                      setIsAdminAuthenticated(false);
+
+                      // reset admin edit states when exit
+                      cancelEditStudent();
+                      cancelEditAssignment();
+                    }}
                     className="text-sm bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded transition"
                   >
                     Thoát
@@ -411,7 +469,6 @@
                           </select>
                         </div>
 
-                        {/* NEW: show chosen assignment deadline nicely */}
                         {selectedAssignId && (
                           <div className="text-sm text-gray-600">
                             Deadline của bài này:{" "}
@@ -472,8 +529,8 @@
                               <th className="p-3 text-sm font-semibold text-gray-600">Bài tập</th>
                               <th className="p-3 text-sm font-semibold text-gray-600">Link</th>
                               <th className="p-3 text-sm font-semibold text-gray-600">Thời gian</th>
-                              <th className="p-3 text-sm font-semibold text-gray-600">Ngày nộp</th> {/* NEW */}
-                              <th className="p-3 text-sm font-semibold text-gray-600">Deadline</th> {/* NEW */}
+                              <th className="p-3 text-sm font-semibold text-gray-600">Ngày nộp</th>
+                              <th className="p-3 text-sm font-semibold text-gray-600">Deadline</th>
                               <th className="p-3 text-sm font-semibold text-gray-600 text-right">Hành động</th>
                             </tr>
                           </thead>
@@ -486,7 +543,6 @@
                                 <tr key={sub.id} className="border-b last:border-0 hover:bg-gray-50">
                                   <td className="p-3 font-medium text-gray-800">
                                     <div>{getAssignName(sub.assignmentId)}</div>
-
                                     {ontime && (
                                       <div className="mt-1 text-sm text-green-600 font-semibold">
                                         Chúc mừng bạn đã hoàn thành bài học đúng hạn
@@ -550,7 +606,11 @@
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-2 border-b pb-2">
                   <button
-                    onClick={() => setAdminTab("report")}
+                    onClick={() => {
+                      setAdminTab("report");
+                      cancelEditStudent();
+                      cancelEditAssignment();
+                    }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "report" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -558,7 +618,10 @@
                     Báo cáo Tổng quan
                   </button>
                   <button
-                    onClick={() => setAdminTab("students")}
+                    onClick={() => {
+                      setAdminTab("students");
+                      cancelEditAssignment();
+                    }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "students" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -566,7 +629,10 @@
                     QL Học viên
                   </button>
                   <button
-                    onClick={() => setAdminTab("assignments")}
+                    onClick={() => {
+                      setAdminTab("assignments");
+                      cancelEditStudent();
+                    }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "assignments" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -648,7 +714,12 @@
                 {adminTab === "students" && (
                   <div className="bg-white p-6 rounded-xl shadow-md">
                     <h3 className="font-bold mb-4">Danh sách Học Viên ({students.length})</h3>
-                    <div className="flex gap-2 mb-6">
+
+                    {/* ENTER to add: wrap in form */}
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); addStudent(); }}
+                      className="flex gap-2 mb-6"
+                    >
                       <input
                         type="text"
                         value={newStudentName}
@@ -656,19 +727,64 @@
                         placeholder="Nhập tên học viên mới..."
                         className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                       />
-                      <button onClick={addStudent} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
                         <Plus className="w-4 h-4" /> Thêm
                       </button>
-                    </div>
+                    </form>
+
                     <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                      {students.map(s => (
-                        <div key={s.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border group hover:border-blue-300">
-                          <span className="font-medium">{s.name}</span>
-                          <button onClick={() => deleteStudent(s.id)} className="text-gray-400 hover:text-red-500 transition">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                      {students.map(s => {
+                        const isEditing = editingStudentId === s.id;
+
+                        return (
+                          <div key={s.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border group hover:border-blue-300 gap-2">
+                            {!isEditing ? (
+                              <span className="font-medium flex-1">{s.name}</span>
+                            ) : (
+                              <form
+                                onSubmit={(e) => { e.preventDefault(); saveEditStudent(); }}
+                                className="flex-1 flex gap-2"
+                              >
+                                <input
+                                  type="text"
+                                  value={editingStudentName}
+                                  onChange={(e) => setEditingStudentName(e.target.value)}
+                                  className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                  autoFocus
+                                />
+                                <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu">
+                                  <Save className="w-4 h-4" />
+                                </button>
+                                <button type="button" onClick={cancelEditStudent} className="text-gray-500 hover:text-gray-700" title="Hủy">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </form>
+                            )}
+
+                            {!isEditing && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => startEditStudent(s)}
+                                  className="text-gray-400 hover:text-orange-600 transition"
+                                  title="Sửa"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteStudent(s.id)}
+                                  className="text-gray-400 hover:text-red-500 transition"
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -677,7 +793,11 @@
                   <div className="bg-white p-6 rounded-xl shadow-md">
                     <h3 className="font-bold mb-4">Danh sách Bài Tập ({assignments.length})</h3>
 
-                    <div className="flex gap-2 mb-6 flex-col md:flex-row">
+                    {/* ENTER to add: wrap in form */}
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); addAssignment(); }}
+                      className="flex gap-2 mb-6 flex-col md:flex-row"
+                    >
                       <input
                         type="text"
                         value={newAssignName}
@@ -686,7 +806,6 @@
                         className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                       />
 
-                      {/* NEW: deadline */}
                       <input
                         type="date"
                         value={newAssignDeadline}
@@ -695,28 +814,81 @@
                         title="Deadline"
                       />
 
-                      <button onClick={addAssignment} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
                         <Plus className="w-4 h-4" /> Thêm
                       </button>
-                    </div>
+                    </form>
 
                     <ul className="space-y-2">
-                      {assignments.map((a, idx) => (
-                        <li key={a.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border">
-                          <span className="font-medium">
-                            <span className="text-blue-600 font-bold mr-2">#{idx + 1}</span>
-                            {a.title}
-                            {a.deadline ? (
-                              <span className="ml-2 text-xs text-gray-500">(Deadline: {formatVNDate(a.deadline)})</span>
+                      {assignments.map((a, idx) => {
+                        const isEditing = editingAssignId === a.id;
+
+                        return (
+                          <li key={a.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border gap-2">
+                            {!isEditing ? (
+                              <span className="font-medium flex-1">
+                                <span className="text-blue-600 font-bold mr-2">#{idx + 1}</span>
+                                {a.title}
+                                {a.deadline ? (
+                                  <span className="ml-2 text-xs text-gray-500">(Deadline: {formatVNDate(a.deadline)})</span>
+                                ) : (
+                                  <span className="ml-2 text-xs text-gray-400">(Chưa có deadline)</span>
+                                )}
+                              </span>
                             ) : (
-                              <span className="ml-2 text-xs text-gray-400">(Chưa có deadline)</span>
+                              <form
+                                onSubmit={(e) => { e.preventDefault(); saveEditAssignment(); }}
+                                className="flex-1 flex flex-col md:flex-row gap-2"
+                              >
+                                <input
+                                  type="text"
+                                  value={editingAssignName}
+                                  onChange={(e) => setEditingAssignName(e.target.value)}
+                                  className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                  autoFocus
+                                />
+                                <input
+                                  type="date"
+                                  value={editingAssignDeadline}
+                                  onChange={(e) => setEditingAssignDeadline(e.target.value)}
+                                  className="border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                  title="Deadline"
+                                />
+                                <div className="flex gap-2 items-center">
+                                  <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu">
+                                    <Save className="w-4 h-4" />
+                                  </button>
+                                  <button type="button" onClick={cancelEditAssignment} className="text-gray-500 hover:text-gray-700" title="Hủy">
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </form>
                             )}
-                          </span>
-                          <button onClick={() => deleteAssignment(a.id)} className="text-gray-400 hover:text-red-500 transition">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </li>
-                      ))}
+
+                            {!isEditing && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => startEditAssignment(a)}
+                                  className="text-gray-400 hover:text-orange-600 transition"
+                                  title="Sửa"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => deleteAssignment(a.id)}
+                                  className="text-gray-400 hover:text-red-500 transition"
+                                  title="Xóa"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
