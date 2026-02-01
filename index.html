@@ -7,65 +7,45 @@
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  // Hiển thị ngay để biết file mới đã được deploy hay chưa
-  document.addEventListener("DOMContentLoaded", () => {
-    const el = document.createElement("div");
-    el.id = "boot-marker";
-    el.style.cssText = "padding:12px;font-family:monospace;color:#0f766e";
-    el.textContent = "Boot marker: HTML đã load (nếu bạn thấy dòng này thì đang dùng bản mới).";
-    document.body.prepend(el);
-  });
 
-  // Bắt lỗi JS mức trình duyệt (kể cả khi Babel chết)
-  window.onerror = function (msg, src, line, col, err) {
-    document.body.innerHTML =
-      "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
-      "window.onerror\\n" +
-      "Message: " + msg + "\\n" +
-      "Source: " + src + "\\n" +
-      "Line: " + line + ":" + col + "\\n" +
-      (err && err.stack ? ("\\n" + err.stack) : "") +
-      "</pre>";
-  };
+  <!-- React UMD (global React/ReactDOM) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  window.onunhandledrejection = function (e) {
-    document.body.innerHTML =
-      "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
-      "unhandledrejection\\n" +
-      String(e && e.reason ? (e.reason.stack || e.reason.message || e.reason) : e) +
-      "</pre>";
-  };
-</script>
+  <!-- Firebase compat (global firebase) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- Babel (JSX in browser) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Debug (tùy chọn, giúp hiện lỗi rõ ràng) -->
+  <script>
+    window.onerror = function (msg, src, line, col, err) {
+      document.body.innerHTML =
+        "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+        "window.onerror\\n" +
+        "Message: " + msg + "\\n" +
+        "Source: " + src + "\\n" +
+        "Line: " + line + ":" + col + "\\n" +
+        (err && err.stack ? ("\\n" + err.stack) : "") +
+        "</pre>";
+    };
+    window.onunhandledrejection = function (e) {
+      document.body.innerHTML =
+        "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+        "unhandledrejection\\n" +
+        String(e && e.reason ? (e.reason.stack || e.reason.message || e.reason) : e) +
+        "</pre>";
+    };
+  </script>
 </head>
 
 <body class="bg-gray-100">
   <div id="root"></div>
 
   <script type="text/babel">
-    /* ================= REACT ================= */
-    import React, { useState, useEffect, useMemo } from "https://esm.sh/react@18.2.0";
-    import { createRoot } from "https://esm.sh/react-dom@18.2.0/client";
-
-    /* ================= FIREBASE (CDN) ================= */
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
-      onSnapshot, query, orderBy, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import {
-      getAuth, signInAnonymously, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    /* ================= ICONS ================= */
-    import {
-      User, Shield, Plus, Trash2, FileSpreadsheet,
-      ExternalLink, Edit2, CheckCircle, Save, X
-    } from "https://esm.sh/lucide-react@0.344.0";
-
     /* ================= FIREBASE CONFIG ================= */
     const firebaseConfig = {
       apiKey: "AIzaSyCSz9VFOO5-fPYTEVdw3kSHBRykrUJYrYQ",
@@ -76,76 +56,97 @@
       appId: "1:245972751:web:94c86d0f88d412b883c87a"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    // init firebase (compat)
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 
     /* ================= CONFIG APP ================= */
     const ADMIN_PASSWORD = "admin123"; // bạn có thể đổi
-    // Firestore collections (PHƯƠNG ÁN A)
-    const colStudents = () => collection(db, "students");
-    const colAssignments = () => collection(db, "assignments");
-    const colSubmissions = () => collection(db, "submissions");
+
+    // Collections
+    const colStudents = () => db.collection("students");
+    const colAssignments = () => db.collection("assignments");
+    const colSubmissions = () => db.collection("submissions");
+
+    // Emoji icons (thay cho lucide-react để ổn định)
+    const Icon = ({ children, className="" }) => (
+      <span className={className} aria-hidden="true">{children}</span>
+    );
+    const UserIcon = (p) => <Icon {...p}>👤</Icon>;
+    const ShieldIcon = (p) => <Icon {...p}>🛡️</Icon>;
+    const PlusIcon = (p) => <Icon {...p}>➕</Icon>;
+    const TrashIcon = (p) => <Icon {...p}>🗑️</Icon>;
+    const SheetIcon = (p) => <Icon {...p}>📄</Icon>;
+    const LinkIcon = (p) => <Icon {...p}>🔗</Icon>;
+    const EditIcon = (p) => <Icon {...p}>✏️</Icon>;
+    const CheckIcon = (p) => <Icon {...p}>✅</Icon>;
+    const SaveIcon = (p) => <Icon {...p}>💾</Icon>;
+    const XIcon = (p) => <Icon {...p}>✖️</Icon>;
 
     function App() {
-      const [user, setUser] = useState(null);
-      const [view, setView] = useState("home"); // home, student, admin-login, admin-dashboard
+      const [user, setUser] = React.useState(null);
+      const [view, setView] = React.useState("home"); // home, student, admin-login, admin-dashboard
 
       // data
-      const [students, setStudents] = useState([]);
-      const [assignments, setAssignments] = useState([]);
-      const [submissions, setSubmissions] = useState([]);
+      const [students, setStudents] = React.useState([]);
+      const [assignments, setAssignments] = React.useState([]);
+      const [submissions, setSubmissions] = React.useState([]);
 
       // admin ui
-      const [adminPassInput, setAdminPassInput] = useState("");
-      const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-      const [newStudentName, setNewStudentName] = useState("");
-      const [newAssignName, setNewAssignName] = useState("");
-      const [newAssignDeadline, setNewAssignDeadline] = useState(""); // deadline when add
-      const [adminTab, setAdminTab] = useState("report"); // report, students, assignments
+      const [adminPassInput, setAdminPassInput] = React.useState("");
+      const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState(false);
+      const [newStudentName, setNewStudentName] = React.useState("");
+      const [newAssignName, setNewAssignName] = React.useState("");
+      const [newAssignDeadline, setNewAssignDeadline] = React.useState("");
+      const [adminTab, setAdminTab] = React.useState("report"); // report, students, assignments
 
-      // admin edit states (NEW)
-      const [editingStudentId, setEditingStudentId] = useState(null);
-      const [editingStudentName, setEditingStudentName] = useState("");
+      // admin edit
+      const [editingStudentId, setEditingStudentId] = React.useState(null);
+      const [editingStudentName, setEditingStudentName] = React.useState("");
 
-      const [editingAssignId, setEditingAssignId] = useState(null);
-      const [editingAssignName, setEditingAssignName] = useState("");
-      const [editingAssignDeadline, setEditingAssignDeadline] = useState("");
+      const [editingAssignId, setEditingAssignId] = React.useState(null);
+      const [editingAssignName, setEditingAssignName] = React.useState("");
+      const [editingAssignDeadline, setEditingAssignDeadline] = React.useState("");
 
       // student ui
-      const [selectedStudentId, setSelectedStudentId] = useState("");
-      const [selectedAssignId, setSelectedAssignId] = useState("");
-      const [linkInput, setLinkInput] = useState("");
-      const [editingSubId, setEditingSubId] = useState(null);
+      const [selectedStudentId, setSelectedStudentId] = React.useState("");
+      const [selectedAssignId, setSelectedAssignId] = React.useState("");
+      const [linkInput, setLinkInput] = React.useState("");
+      const [editingSubId, setEditingSubId] = React.useState(null);
 
       /* ============== AUTH INIT ============== */
-      useEffect(() => {
-        signInAnonymously(auth).catch(console.error);
-        const unsub = onAuthStateChanged(auth, setUser);
+      React.useEffect(() => {
+        auth.signInAnonymously().catch(console.error);
+        const unsub = auth.onAuthStateChanged((u) => setUser(u));
         return () => unsub();
       }, []);
 
       /* ============== REALTIME LISTENERS ============== */
-      useEffect(() => {
+      React.useEffect(() => {
         if (!user) return;
 
-        const unsubStudents = onSnapshot(
-          query(colStudents(), orderBy("name")),
-          (snap) => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-          (err) => console.error(err)
-        );
+        const unsubStudents = colStudents()
+          .orderBy("name")
+          .onSnapshot(
+            (snap) => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+            (err) => console.error(err)
+          );
 
-        const unsubAssignments = onSnapshot(
-          query(colAssignments(), orderBy("createdAt")),
-          (snap) => setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-          (err) => console.error(err)
-        );
+        const unsubAssignments = colAssignments()
+          .orderBy("createdAt")
+          .onSnapshot(
+            (snap) => setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+            (err) => console.error(err)
+          );
 
-        const unsubSubmissions = onSnapshot(
-          query(colSubmissions(), orderBy("timestamp", "desc")),
-          (snap) => setSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-          (err) => console.error(err)
-        );
+        const unsubSubmissions = colSubmissions()
+          .orderBy("timestamp", "desc")
+          .onSnapshot(
+            (snap) => setSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+            (err) => console.error(err)
+          );
 
         return () => {
           unsubStudents();
@@ -157,7 +158,6 @@
       /* ============== HELPERS ============== */
       const getStudentName = (id) => students.find(s => s.id === id)?.name || "Unknown";
       const getAssignName = (id) => assignments.find(a => a.id === id)?.title || "Unknown";
-
       const getAssignment = (id) => assignments.find(a => a.id === id);
       const getAssignDeadline = (id) => getAssignment(id)?.deadline || "";
 
@@ -180,7 +180,7 @@
         return submitDate <= deadline;
       };
 
-      const mySubmissions = useMemo(() => {
+      const mySubmissions = React.useMemo(() => {
         if (!selectedStudentId) return [];
         return submissions.filter(s => s.studentId === selectedStudentId);
       }, [submissions, selectedStudentId]);
@@ -200,7 +200,7 @@
       const addStudent = async () => {
         if (!newStudentName.trim()) return;
         try {
-          await addDoc(colStudents(), { name: newStudentName.trim(), createdAt: serverTimestamp() });
+          await colStudents().add({ name: newStudentName.trim(), createdAt: serverTimestamp() });
           setNewStudentName("");
         } catch (e) { console.error(e); alert("Lỗi thêm học viên"); }
       };
@@ -208,28 +208,23 @@
       const deleteStudent = async (id) => {
         if (!confirm("Xóa học viên này? Các bài nộp liên quan vẫn còn nhưng sẽ mất liên kết.")) return;
         try {
-          await deleteDoc(doc(db, "students", id));
+          await colStudents().doc(id).delete();
         } catch (e) { console.error(e); alert("Lỗi xóa học viên"); }
       };
 
-      // ===== STUDENT EDIT (NEW) =====
       const startEditStudent = (stu) => {
         setEditingStudentId(stu.id);
         setEditingStudentName(stu.name || "");
       };
-
       const cancelEditStudent = () => {
         setEditingStudentId(null);
         setEditingStudentName("");
       };
-
       const saveEditStudent = async () => {
         if (!editingStudentId) return;
         if (!editingStudentName.trim()) { alert("Tên không được để trống"); return; }
         try {
-          await updateDoc(doc(db, "students", editingStudentId), {
-            name: editingStudentName.trim()
-          });
+          await colStudents().doc(editingStudentId).update({ name: editingStudentName.trim() });
           cancelEditStudent();
         } catch (e) { console.error(e); alert("Lỗi cập nhật học viên"); }
       };
@@ -237,7 +232,7 @@
       const addAssignment = async () => {
         if (!newAssignName.trim()) return;
         try {
-          await addDoc(colAssignments(), {
+          await colAssignments().add({
             title: newAssignName.trim(),
             deadline: newAssignDeadline || "",
             createdAt: serverTimestamp()
@@ -250,28 +245,25 @@
       const deleteAssignment = async (id) => {
         if (!confirm("Xóa bài tập này?")) return;
         try {
-          await deleteDoc(doc(db, "assignments", id));
+          await colAssignments().doc(id).delete();
         } catch (e) { console.error(e); alert("Lỗi xóa bài tập"); }
       };
 
-      // ===== ASSIGNMENT EDIT (NEW) =====
       const startEditAssignment = (a) => {
         setEditingAssignId(a.id);
         setEditingAssignName(a.title || "");
         setEditingAssignDeadline(a.deadline || "");
       };
-
       const cancelEditAssignment = () => {
         setEditingAssignId(null);
         setEditingAssignName("");
         setEditingAssignDeadline("");
       };
-
       const saveEditAssignment = async () => {
         if (!editingAssignId) return;
         if (!editingAssignName.trim()) { alert("Tên bài tập không được để trống"); return; }
         try {
-          await updateDoc(doc(db, "assignments", editingAssignId), {
+          await colAssignments().doc(editingAssignId).update({
             title: editingAssignName.trim(),
             deadline: editingAssignDeadline || ""
           });
@@ -321,7 +313,7 @@
 
         try {
           if (editingSubId) {
-            await updateDoc(doc(db, "submissions", editingSubId), {
+            await colSubmissions().doc(editingSubId).update({
               link: linkInput,
               submitDate: todayISO,
               timestamp: serverTimestamp()
@@ -330,7 +322,7 @@
             alert("Cập nhật bài nộp thành công!");
           } else if (existingSub) {
             if (confirm("Bạn đã nộp bài này rồi. Cập nhật link mới?")) {
-              await updateDoc(doc(db, "submissions", existingSub.id), {
+              await colSubmissions().doc(existingSub.id).update({
                 link: linkInput,
                 submitDate: todayISO,
                 timestamp: serverTimestamp()
@@ -338,7 +330,7 @@
               alert("Cập nhật thành công!");
             }
           } else {
-            await addDoc(colSubmissions(), {
+            await colSubmissions().add({
               studentId: selectedStudentId,
               assignmentId: selectedAssignId,
               link: linkInput,
@@ -357,7 +349,7 @@
       const handleDeleteSubmission = async (subId) => {
         if (!confirm("Bạn chắc chắn muốn xóa bài nộp này?")) return;
         try {
-          await deleteDoc(doc(db, "submissions", subId));
+          await colSubmissions().doc(subId).delete();
         } catch (e) { console.error(e); alert("Lỗi xóa bài nộp"); }
       };
 
@@ -379,12 +371,10 @@
 
       return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
-          {/* HEADER */}
           <header className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
             <div className="max-w-5xl mx-auto flex justify-between items-center">
               <h1 className="text-xl font-bold flex items-center gap-2">
-                <CheckCircle className="w-6 h-6" />
-                Cổng Nộp Bài
+                <CheckIcon className="w-6 h-6" /> Cổng Nộp Bài
               </h1>
               <div className="flex gap-2">
                 {view !== "home" && (
@@ -392,8 +382,6 @@
                     onClick={() => {
                       setView("home");
                       setIsAdminAuthenticated(false);
-
-                      // reset admin edit states when exit
                       cancelEditStudent();
                       cancelEditAssignment();
                     }}
@@ -407,14 +395,13 @@
           </header>
 
           <main className="max-w-5xl mx-auto p-4">
-            {/* HOME */}
             {view === "home" && (
               <div className="flex flex-col md:flex-row gap-6 mt-10 justify-center items-center">
                 <div
                   onClick={() => setView("student")}
                   className="w-full md:w-64 h-48 bg-white rounded-xl shadow-lg hover:shadow-xl cursor-pointer flex flex-col items-center justify-center gap-4 transition transform hover:-translate-y-1 border border-gray-200"
                 >
-                  <User className="w-16 h-16 text-green-500" />
+                  <UserIcon className="text-4xl" />
                   <span className="text-xl font-semibold text-gray-700">Tôi là Học Viên</span>
                 </div>
 
@@ -422,13 +409,12 @@
                   onClick={() => setView("admin-login")}
                   className="w-full md:w-64 h-48 bg-white rounded-xl shadow-lg hover:shadow-xl cursor-pointer flex flex-col items-center justify-center gap-4 transition transform hover:-translate-y-1 border border-gray-200"
                 >
-                  <Shield className="w-16 h-16 text-red-500" />
+                  <ShieldIcon className="text-4xl" />
                   <span className="text-xl font-semibold text-gray-700">Tôi là Admin</span>
                 </div>
               </div>
             )}
 
-            {/* ADMIN LOGIN */}
             {view === "admin-login" && (
               <div className="max-w-md mx-auto mt-20 bg-white p-8 rounded-xl shadow-lg">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Đăng nhập Quản trị</h2>
@@ -455,8 +441,7 @@
               <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
                   <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <Edit2 className="w-5 h-5 text-green-600" />
-                    Nộp bài tập
+                    <EditIcon /> Nộp bài tập
                   </h2>
 
                   <form onSubmit={handleSubmitWork} className="space-y-4">
@@ -509,7 +494,7 @@
                         )}
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">3. Link bài nộp (Google Drive, Github...)</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">3. Link bài nộp</label>
                           <input
                             type="url"
                             value={linkInput}
@@ -587,14 +572,12 @@
                                       rel="noreferrer"
                                       className="text-blue-600 hover:underline flex items-center gap-1 max-w-[160px] truncate"
                                     >
-                                      Xem Link <ExternalLink className="w-3 h-3" />
+                                      Xem Link <LinkIcon />
                                     </a>
                                   </td>
 
                                   <td className="p-3 text-sm text-gray-500">
-                                    {sub.timestamp?.seconds
-                                      ? new Date(sub.timestamp.seconds * 1000).toLocaleString("vi-VN")
-                                      : "Vừa xong"}
+                                    {sub.timestamp?.toDate ? sub.timestamp.toDate().toLocaleString("vi-VN") : "Vừa xong"}
                                   </td>
 
                                   <td className="p-3 text-sm text-gray-700">
@@ -636,11 +619,7 @@
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-2 border-b pb-2">
                   <button
-                    onClick={() => {
-                      setAdminTab("report");
-                      cancelEditStudent();
-                      cancelEditAssignment();
-                    }}
+                    onClick={() => { setAdminTab("report"); cancelEditStudent(); cancelEditAssignment(); }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "report" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -648,10 +627,7 @@
                     Báo cáo Tổng quan
                   </button>
                   <button
-                    onClick={() => {
-                      setAdminTab("students");
-                      cancelEditAssignment();
-                    }}
+                    onClick={() => { setAdminTab("students"); cancelEditAssignment(); }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "students" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -659,10 +635,7 @@
                     QL Học viên
                   </button>
                   <button
-                    onClick={() => {
-                      setAdminTab("assignments");
-                      cancelEditStudent();
-                    }}
+                    onClick={() => { setAdminTab("assignments"); cancelEditStudent(); }}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       adminTab === "assignments" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
                     }`}
@@ -679,7 +652,7 @@
                         onClick={exportToCSV}
                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition shadow-sm"
                       >
-                        <FileSpreadsheet className="w-4 h-4" /> Xuất Excel
+                        <SheetIcon /> Xuất Excel
                       </button>
                     </div>
 
@@ -745,11 +718,7 @@
                   <div className="bg-white p-6 rounded-xl shadow-md">
                     <h3 className="font-bold mb-4">Danh sách Học Viên ({students.length})</h3>
 
-                    {/* ENTER to add: wrap in form */}
-                    <form
-                      onSubmit={(e) => { e.preventDefault(); addStudent(); }}
-                      className="flex gap-2 mb-6"
-                    >
+                    <form onSubmit={(e) => { e.preventDefault(); addStudent(); }} className="flex gap-2 mb-6">
                       <input
                         type="text"
                         value={newStudentName}
@@ -757,11 +726,8 @@
                         placeholder="Nhập tên học viên mới..."
                         className="flex-1 border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                       />
-                      <button
-                        type="submit"
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" /> Thêm
+                      <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
+                        <PlusIcon /> Thêm
                       </button>
                     </form>
 
@@ -774,10 +740,7 @@
                             {!isEditing ? (
                               <span className="font-medium flex-1">{s.name}</span>
                             ) : (
-                              <form
-                                onSubmit={(e) => { e.preventDefault(); saveEditStudent(); }}
-                                className="flex-1 flex gap-2"
-                              >
+                              <form onSubmit={(e) => { e.preventDefault(); saveEditStudent(); }} className="flex-1 flex gap-2">
                                 <input
                                   type="text"
                                   value={editingStudentName}
@@ -785,31 +748,15 @@
                                   className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                                   autoFocus
                                 />
-                                <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu">
-                                  <Save className="w-4 h-4" />
-                                </button>
-                                <button type="button" onClick={cancelEditStudent} className="text-gray-500 hover:text-gray-700" title="Hủy">
-                                  <X className="w-4 h-4" />
-                                </button>
+                                <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu"><SaveIcon /></button>
+                                <button type="button" onClick={cancelEditStudent} className="text-gray-500 hover:text-gray-700" title="Hủy"><XIcon /></button>
                               </form>
                             )}
 
                             {!isEditing && (
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => startEditStudent(s)}
-                                  className="text-gray-400 hover:text-orange-600 transition"
-                                  title="Sửa"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteStudent(s.id)}
-                                  className="text-gray-400 hover:text-red-500 transition"
-                                  title="Xóa"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <button onClick={() => startEditStudent(s)} className="text-gray-400 hover:text-orange-600 transition" title="Sửa"><EditIcon /></button>
+                                <button onClick={() => deleteStudent(s.id)} className="text-gray-400 hover:text-red-500 transition" title="Xóa"><TrashIcon /></button>
                               </div>
                             )}
                           </div>
@@ -823,11 +770,7 @@
                   <div className="bg-white p-6 rounded-xl shadow-md">
                     <h3 className="font-bold mb-4">Danh sách Bài Tập ({assignments.length})</h3>
 
-                    {/* ENTER to add: wrap in form */}
-                    <form
-                      onSubmit={(e) => { e.preventDefault(); addAssignment(); }}
-                      className="flex gap-2 mb-6 flex-col md:flex-row"
-                    >
+                    <form onSubmit={(e) => { e.preventDefault(); addAssignment(); }} className="flex gap-2 mb-6 flex-col md:flex-row">
                       <input
                         type="text"
                         value={newAssignName}
@@ -844,11 +787,8 @@
                         title="Deadline"
                       />
 
-                      <button
-                        type="submit"
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" /> Thêm
+                      <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-1">
+                        <PlusIcon /> Thêm
                       </button>
                     </form>
 
@@ -869,10 +809,7 @@
                                 )}
                               </span>
                             ) : (
-                              <form
-                                onSubmit={(e) => { e.preventDefault(); saveEditAssignment(); }}
-                                className="flex-1 flex flex-col md:flex-row gap-2"
-                              >
+                              <form onSubmit={(e) => { e.preventDefault(); saveEditAssignment(); }} className="flex-1 flex flex-col md:flex-row gap-2">
                                 <input
                                   type="text"
                                   value={editingAssignName}
@@ -888,32 +825,16 @@
                                   title="Deadline"
                                 />
                                 <div className="flex gap-2 items-center">
-                                  <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu">
-                                    <Save className="w-4 h-4" />
-                                  </button>
-                                  <button type="button" onClick={cancelEditAssignment} className="text-gray-500 hover:text-gray-700" title="Hủy">
-                                    <X className="w-4 h-4" />
-                                  </button>
+                                  <button type="submit" className="text-green-600 hover:text-green-800" title="Lưu"><SaveIcon /></button>
+                                  <button type="button" onClick={cancelEditAssignment} className="text-gray-500 hover:text-gray-700" title="Hủy"><XIcon /></button>
                                 </div>
                               </form>
                             )}
 
                             {!isEditing && (
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => startEditAssignment(a)}
-                                  className="text-gray-400 hover:text-orange-600 transition"
-                                  title="Sửa"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteAssignment(a.id)}
-                                  className="text-gray-400 hover:text-red-500 transition"
-                                  title="Xóa"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <button onClick={() => startEditAssignment(a)} className="text-gray-400 hover:text-orange-600 transition" title="Sửa"><EditIcon /></button>
+                                <button onClick={() => deleteAssignment(a.id)} className="text-gray-400 hover:text-red-500 transition" title="Xóa"><TrashIcon /></button>
                               </div>
                             )}
                           </li>
@@ -929,9 +850,7 @@
       );
     }
 
-    createRoot(document.getElementById("root")).render(<App />);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
-
-
