@@ -7,6 +7,36 @@
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Hiển thị ngay để biết file mới đã được deploy hay chưa
+  document.addEventListener("DOMContentLoaded", () => {
+    const el = document.createElement("div");
+    el.id = "boot-marker";
+    el.style.cssText = "padding:12px;font-family:monospace;color:#0f766e";
+    el.textContent = "Boot marker: HTML đã load (nếu bạn thấy dòng này thì đang dùng bản mới).";
+    document.body.prepend(el);
+  });
+
+  // Bắt lỗi JS mức trình duyệt (kể cả khi Babel chết)
+  window.onerror = function (msg, src, line, col, err) {
+    document.body.innerHTML =
+      "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+      "window.onerror\\n" +
+      "Message: " + msg + "\\n" +
+      "Source: " + src + "\\n" +
+      "Line: " + line + ":" + col + "\\n" +
+      (err && err.stack ? ("\\n" + err.stack) : "") +
+      "</pre>";
+  };
+
+  window.onunhandledrejection = function (e) {
+    document.body.innerHTML =
+      "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+      "unhandledrejection\\n" +
+      String(e && e.reason ? (e.reason.stack || e.reason.message || e.reason) : e) +
+      "</pre>";
+  };
+</script>
 
   <!-- Babel (JSX in browser) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -903,3 +933,4 @@
   </script>
 </body>
 </html>
+
