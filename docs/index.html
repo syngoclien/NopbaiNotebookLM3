@@ -1,3 +1,20 @@
+window.addEventListener("error", (e) => {
+  document.body.innerHTML =
+    "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+    "JS Error:\\n" +
+    (e?.message || e) + "\\n" +
+    (e?.filename ? ("File: " + e.filename + "\\nLine: " + e.lineno) : "") +
+    "</pre>";
+});
+
+window.addEventListener("unhandledrejection", (e) => {
+  document.body.innerHTML =
+    "<pre style='white-space:pre-wrap;padding:12px;color:#b91c1c;font-family:monospace'>" +
+    "Promise Error:\\n" +
+    (e?.reason?.message || e?.reason || e) +
+    "</pre>";
+});
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
